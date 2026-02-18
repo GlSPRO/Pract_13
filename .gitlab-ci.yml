@@ -41,8 +41,9 @@ lint_python:
   stage: lint
   allow_failure: true
   script:
-    - mkdir -p artifacts/lint
-    - flake8 . --exclude=.venv,__pycache__,migrations > artifacts/lint/flake8.log || true
+  - mkdir -p artifacts/lint
+  - flake8 . --exclude=.venv,__pycache__,migrations > artifacts/lint/flake8.log || true
+
   artifacts:
     when: always
     expire_in: 1 week
@@ -77,6 +78,7 @@ security_dependencies_audit:
   allow_failure: true
   script:
     - mkdir -p artifacts/security
+    - |
       if [ -f requirements.txt ]; then
         pip-audit -r requirements.txt > artifacts/security/pip-audit.log || true
       else
@@ -87,3 +89,4 @@ security_dependencies_audit:
     expire_in: 1 week
     paths:
       - artifacts/security/
+
