@@ -1,0 +1,72 @@
+{% extends "base.html" %}
+{% block title %}HR дашборд{% endblock %}
+{% block content %}
+<div class="d-flex flex-wrap align-items-center justify-content-between mb-3">
+    <div>
+        <div class="small-label">HR менеджер</div>
+        <h1 class="h4 mb-0">Дашборд HR</h1>
+    </div>
+    <a class="btn btn-outline-secondary" href="{% url 'hr_portal:schedule' %}">Открыть график смен</a>
+</div>
+
+<div class="row g-3 mb-3">
+    {% for card in kpi_cards %}
+        <div class="col-12 col-sm-6 col-xl-3">
+            <div class="card p-3 h-100">
+                <div class="small-label">{{ card.label }}</div>
+                <div class="h3 mb-1">{{ card.value }}</div>
+                <div class="text-muted-small">{{ card.hint }}</div>
+            </div>
+        </div>
+    {% endfor %}
+</div>
+
+<div class="row g-3">
+    <div class="col-12 col-xl-7">
+        <div class="card p-3 h-100">
+            <div class="small-label mb-2">Загрузка по цехам</div>
+            <div class="table-responsive">
+                <table class="table table-sm align-middle mb-0">
+                    <thead>
+                        <tr>
+                            <th>Цех</th>
+                            <th class="text-center">План</th>
+                            <th class="text-center">Факт</th>
+                            <th class="text-center">Загрузка</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for row in staff_by_workshop %}
+                        <tr>
+                            <td class="fw-semibold">{{ row.name }}</td>
+                            <td class="text-center">{{ row.planned }}</td>
+                            <td class="text-center">{{ row.actual }}</td>
+                            <td class="text-center">{{ row.ratio }}%</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+    <div class="col-12 col-xl-5">
+        <div class="card p-3 h-100">
+            <div class="small-label mb-2">Последние действия по сменам</div>
+            <div class="timeline">
+                {% for item in recent_actions %}
+                <div class="timeline-item">
+                    <div class="d-flex justify-content-between">
+                        <div class="fw-semibold">{{ item.actor }}</div>
+                        <span class="text-muted small">{{ item.date }}</span>
+                    </div>
+                    <div class="text-muted-small">{{ item.action }}</div>
+                    <div class="text-muted-small">{{ item.details }}</div>
+                </div>
+                {% empty %}
+                <div class="empty-state">Действий пока нет</div>
+                {% endfor %}
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

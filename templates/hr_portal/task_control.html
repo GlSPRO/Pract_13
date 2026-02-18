@@ -1,0 +1,82 @@
+{% extends "base.html" %}
+{% block title %}Контроль задач сотрудников{% endblock %}
+{% block content %}
+<div class="d-flex flex-wrap align-items-center justify-content-between mb-3">
+    <div>
+        <div class="small-label">HR менеджер</div>
+        <h1 class="h4 mb-0">Контроль статусов задач</h1>
+    </div>
+    <a class="btn btn-primary" href="{% url 'hr_portal:task_create' %}">Поставить задачу</a>
+</div>
+
+<div class="card p-3 mb-3">
+    <form class="row g-2">
+        <div class="col-12 col-md-4">
+            <label class="form-label">Логин сотрудника</label>
+            <input class="form-control" name="employee" value="{{ request.GET.employee }}" placeholder="emp">
+        </div>
+        <div class="col-12 col-md-4">
+            <label class="form-label">Статус</label>
+            <select class="form-select" name="status">
+                <option value="">Все</option>
+                {% for code, title in status_choices %}
+                    <option value="{{ code }}" {% if current_status == code %}selected{% endif %}>{{ title }}</option>
+                {% endfor %}
+            </select>
+        </div>
+        <div class="col-12 col-md-3">
+            <label class="form-label">Приоритет</label>
+            <select class="form-select" name="priority">
+                <option value="">Все</option>
+                {% for code, title in priority_choices %}
+                    <option value="{{ code }}" {% if current_priority == code|stringformat:"s" %}selected{% endif %}>{{ title }}</option>
+                {% endfor %}
+            </select>
+        </div>
+        <div class="col-12 col-md-1 d-flex align-items-end">
+            <button class="btn btn-primary w-100" type="submit">Фильтр</button>
+        </div>
+    </form>
+</div>
+
+<div class="card p-3">
+    <div class="table-responsive">
+        <table class="table align-middle mb-0">
+            <thead>
+                <tr>
+                    <th>Сотрудник</th>
+                    <th>Задача</th>
+                    <th>Приоритет</th>
+                    <th>Срок</th>
+                    <th>Текущий статус</th>
+                    <th class="text-end">Изменить статус</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for task in tasks %}
+                <tr>
+                    <td>{{ task.employee.profile.full_name|default:task.employee.username }}</td>
+                    <td class="fw-semibold">{{ task.title }}</td>
+                    <td>{{ task.get_priority_display }}</td>
+                    <td>{% if task.due_date %}{{ task.due_date|date:"d.m.Y" }}{% else %}—{% endif %}</td>
+                    <td>{{ task.get_status_display }}</td>
+                    <td class="text-end">
+                        <form method="post" action="{% url 'hr_portal:task_set_status' task.id %}" class="d-inline-flex gap-2">
+                            {% csrf_token %}
+                            <select name="status" class="form-select form-select-sm" style="width: 160px;">
+                                {% for code, title in status_choices %}
+                                    <option value="{{ code }}" {% if task.status == code %}selected{% endif %}>{{ title }}</option>
+                                {% endfor %}
+                            </select>
+                            <button class="btn btn-outline-secondary btn-sm" type="submit">Сохранить</button>
+                        </form>
+                    </td>
+                </tr>
+                {% empty %}
+                <tr><td colspan="6"><div class="empty-state">Задач нет</div></td></tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}

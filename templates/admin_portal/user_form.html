@@ -1,0 +1,59 @@
+{% extends "base.html" %}
+{% block title %}{% if mode == 'create' %}Создание пользователя{% else %}Редактирование пользователя{% endif %}{% endblock %}
+{% block content %}
+<div class="d-flex flex-wrap align-items-center justify-content-between mb-3">
+    <div>
+        <div class="small-label">Пользователи</div>
+        <h1 class="h4 mb-0">{% if mode == 'create' %}Создание пользователя{% else %}Редактирование пользователя{% endif %}</h1>
+    </div>
+    <a class="btn btn-outline-secondary" href="{% url 'admin_portal:users_list' %}">Назад к списку</a>
+</div>
+
+<div class="card p-4">
+    {% if form.errors %}
+        <div class="alert alert-danger">Исправьте ошибки формы и попробуйте снова.</div>
+    {% endif %}
+    <form method="post" novalidate>
+        {% csrf_token %}
+        <div class="row g-3">
+            <div class="col-12 col-md-4">
+                <label class="form-label">Логин</label>
+                <input type="text" name="username" value="{{ user_data.username }}" class="form-control" required placeholder="naprimer.ivanov" aria-label="Логин">
+                <div class="form-hint">Уникальное имя для входа</div>
+            </div>
+            <div class="col-12 col-md-8">
+                <label class="form-label">ФИО</label>
+                <input type="text" name="full_name" value="{{ user_data.full_name }}" class="form-control" required placeholder="Иванов Иван Иванович" aria-label="ФИО">
+            </div>
+            <div class="col-12 col-md-6">
+                <label class="form-label">Группа доступа</label>
+                <select name="group" class="form-select" required>
+                    <option value="">Выберите группу</option>
+                    {% for group in groups %}
+                        <option value="{{ group.code }}" {% if user_data.group == group.code %}selected{% endif %}>{{ group.title }}</option>
+                    {% endfor %}
+                </select>
+                <div class="form-hint">Определяет права (RBAC)</div>
+            </div>
+            <div class="col-12 col-md-6">
+                <label class="form-label">Статус</label>
+                <select name="status" class="form-select">
+                    <option value="active" {% if user_data.status == 'active' %}selected{% endif %}>Активен</option>
+                    <option value="locked" {% if user_data.status == 'locked' %}selected{% endif %}>Заблокирован</option>
+                </select>
+            </div>
+            {% if mode == 'create' %}
+            <div class="col-12 col-md-6">
+                <label class="form-label">Пароль</label>
+                <input type="text" name="password" value="{{ user_data.password|default:'Будет сгенерирован' }}" class="form-control" readonly>
+                <div class="form-hint">Пароль будет сгенерирован автоматически и показан один раз</div>
+            </div>
+            {% endif %}
+        </div>
+        <div class="d-flex flex-wrap gap-2 mt-4">
+            <button class="btn btn-primary" type="submit">{% if mode == 'create' %}Создать{% else %}Сохранить{% endif %}</button>
+            <a class="btn btn-outline-secondary" href="{% url 'admin_portal:users_list' %}">Отменить</a>
+        </div>
+    </form>
+</div>
+{% endblock %}

@@ -1,0 +1,52 @@
+{% extends "base.html" %}
+{% block title %}График смен{% endblock %}
+{% block content %}
+<div class="d-flex flex-wrap align-items-center justify-content-between mb-3">
+    <div>
+        <div class="small-label">Сотрудник</div>
+        <h1 class="h4 mb-0">График смен</h1>
+    </div>
+</div>
+
+<div class="card p-3">
+    <div class="table-responsive">
+        <table class="table table-sm align-middle mb-0">
+            <thead>
+                <tr>
+                    <th>Дата</th>
+                    <th>Время</th>
+                    <th>Участок</th>
+                    <th class="text-center">Ознакомление</th>
+                    <th class="text-end">Действие</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for shift in shifts %}
+                <tr>
+                    <td>{{ shift.date|date:"d.m.Y" }}</td>
+                    <td>{{ shift.start_time|time:"H:i" }} - {{ shift.end_time|time:"H:i" }}</td>
+                    <td>{{ shift.workshop }}</td>
+                    <td class="text-center">
+                        {% if shift.is_acknowledged %}
+                            <span class="text-success">Подтверждено</span>
+                        {% else %}
+                            <span class="text-warning">Не подтверждено</span>
+                        {% endif %}
+                    </td>
+                    <td class="text-end">
+                        {% if not shift.is_acknowledged %}
+                        <form method="post" action="{% url 'core:employee_shift_ack' shift.id %}">
+                            {% csrf_token %}
+                            <button class="btn btn-primary btn-sm" type="submit">Подтвердить ознакомление</button>
+                        </form>
+                        {% endif %}
+                    </td>
+                </tr>
+                {% empty %}
+                <tr><td colspan="5"><div class="empty-state">Смены не назначены</div></td></tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}

@@ -1,0 +1,64 @@
+{% extends "base.html" %}
+{% block title %}Профиль и стаж{% endblock %}
+{% block content %}
+<div class="d-flex flex-wrap align-items-center justify-content-between mb-3">
+    <div>
+        <div class="small-label">Сотрудник</div>
+        <h1 class="h4 mb-0">Профиль и стаж</h1>
+    </div>
+</div>
+
+<div class="row g-3">
+    <div class="col-12 col-xl-5">
+        <div class="card p-3 h-100">
+            <div class="small-label mb-2">Профиль</div>
+            <p class="mb-1"><strong>ФИО:</strong> {{ profile.full_name }}</p>
+            <p class="mb-1"><strong>Должность:</strong> {{ profile.position|default:"Не указана" }}</p>
+            <p class="mb-0"><strong>Стаж:</strong> {{ experience_days }} дней</p>
+        </div>
+    </div>
+    <div class="col-12 col-xl-7">
+        <div class="card p-3 h-100">
+            <div class="small-label mb-2">Заявка на изменение данных</div>
+            <form method="post" novalidate>
+                {% csrf_token %}
+                {% for field in form %}
+                <div class="mb-3">
+                    <label class="form-label" for="{{ field.id_for_label }}">{{ field.label }}</label>
+                    {{ field }}
+                </div>
+                {% endfor %}
+                <button class="btn btn-primary" type="submit">Отправить заявку</button>
+            </form>
+        </div>
+    </div>
+</div>
+
+<div class="card p-3 mt-3">
+    <div class="small-label mb-2">История заявок</div>
+    <div class="table-responsive">
+        <table class="table table-sm align-middle mb-0">
+            <thead>
+                <tr>
+                    <th>Дата</th>
+                    <th>Поле</th>
+                    <th>Новое значение</th>
+                    <th>Статус</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for item in requests %}
+                <tr>
+                    <td>{{ item.created_at|date:"d.m.Y H:i" }}</td>
+                    <td>{{ item.field_label }}</td>
+                    <td>{{ item.new_value }}</td>
+                    <td>{{ item.get_status_display }}</td>
+                </tr>
+                {% empty %}
+                <tr><td colspan="4"><div class="empty-state">Заявок пока нет</div></td></tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}

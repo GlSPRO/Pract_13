@@ -1,0 +1,82 @@
+{% extends "base.html" %}
+{% block title %}Аудит действий{% endblock %}
+{% block content %}
+<div class="d-flex flex-wrap align-items-center justify-content-between mb-3">
+    <div>
+        <div class="small-label">Контроль</div>
+        <h1 class="h4 mb-0">Журнал аудита</h1>
+    </div>
+    <a class="btn btn-outline-secondary" href="{% url 'admin_portal:dashboard' %}">На дашборд</a>
+</div>
+
+<div class="card p-3 mb-3">
+    <form class="filter-grid">
+        <div>
+            <label class="form-label">Пользователь</label>
+            <input type="search" name="actor" value="{{ request.GET.actor }}" class="form-control" placeholder="Логин или ФИО">
+        </div>
+        <div>
+            <label class="form-label">Действие</label>
+            <select name="action" class="form-select">
+                <option value="">Любое</option>
+                {% for action_code, action_title in action_filters %}
+                    <option value="{{ action_code }}" {% if request.GET.action == action_code %}selected{% endif %}>{{ action_title }}</option>
+                {% endfor %}
+            </select>
+        </div>
+        <div>
+            <label class="form-label">Дата от</label>
+            <input type="date" name="date_from" value="{{ request.GET.date_from }}" class="form-control">
+        </div>
+        <div>
+            <label class="form-label">Дата до</label>
+            <input type="date" name="date_to" value="{{ request.GET.date_to }}" class="form-control">
+        </div>
+        <div class="d-flex align-items-end gap-2">
+            <button class="btn btn-primary" type="submit">Фильтровать</button>
+            <a class="btn btn-outline-secondary" href="{% url 'admin_portal:audit' %}">Сброс</a>
+        </div>
+    </form>
+</div>
+
+<div class="card p-3">
+    <div class="table-responsive">
+        <table class="table table-hover table-sm align-middle mb-0">
+            <thead>
+                <tr>
+                    <th>Дата</th>
+                    <th>Пользователь</th>
+                    <th>Действие</th>
+                    <th>Объект</th>
+                    <th>Детали</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for row in audit_rows %}
+                    <tr>
+                        <td class="text-nowrap">{{ row.date }}</td>
+                        <td>{{ row.actor }}</td>
+                        <td><span class="badge-role">{{ row.action }}</span></td>
+                        <td>{{ row.object }}</td>
+                        <td class="text-muted small">{{ row.details }}</td>
+                    </tr>
+                {% empty %}
+                    <tr><td colspan="5"><div class="empty-state">Нет записей</div></td></tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    <div class="d-flex justify-content-between align-items-center pt-3">
+        <div class="text-muted small">Показано {{ audit_info.displayed }} из {{ audit_info.total }}</div>
+        <nav aria-label="Пагинация аудита">
+            <ul class="pagination mb-0">
+                {% for page in audit_info.pages %}
+                    <li class="page-item {% if page.is_active %}active{% endif %}">
+                        <a class="page-link" href="{{ page.url }}">{{ page.label }}</a>
+                    </li>
+                {% endfor %}
+            </ul>
+        </nav>
+    </div>
+</div>
+{% endblock %}

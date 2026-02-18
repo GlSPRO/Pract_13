@@ -1,0 +1,25 @@
+{% extends "base.html" %}
+{% block title %}Вход в админ-портал{% endblock %}
+{% block body_class %}auth-page{% endblock %}
+{% block auth_content %}
+<div class="auth-card p-4 p-md-5">
+    <div class="mb-3">
+        <div class="small-label">Администрирование</div>
+        <h1 class="h4 mb-1 auth-brand">Админ-портал HR</h1>
+        <p class="text-muted-small mb-0">Войдите, чтобы управлять пользователями и аудитом.</p>
+    </div>
+    <form method="post" novalidate>
+        {% csrf_token %}
+        <div class="mb-3">
+            <label class="form-label" for="id_username">Логин</label>
+            <input type="text" name="username" autofocus required class="form-control" id="id_username" aria-label="Логин">
+        </div>
+        <div class="mb-3">
+            <label class="form-label" for="id_password">Пароль</label>
+            <input type="password" name="password" required class="form-control" id="id_password" aria-label="Пароль">
+        </div>
+        <button type="submit" class="btn btn-primary w-100 mb-2">Войти</button>
+        <p class="text-muted-small mb-0">Доступ только для пользователей группы «Администратор».</p>
+    </form>
+</div>
+{% endblock %}

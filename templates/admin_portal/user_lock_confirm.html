@@ -1,0 +1,32 @@
+{% extends "base.html" %}
+{% block title %}{% if action == 'lock' %}Блокировка{% else %}Разблокировка{% endif %} пользователя{% endblock %}
+{% block content %}
+<div class="d-flex flex-wrap align-items-center justify-content-between mb-3">
+    <div>
+        <div class="small-label">Безопасность</div>
+        <h1 class="h4 mb-0">{% if action == 'lock' %}Блокировка{% else %}Разблокировка{% endif %} пользователя</h1>
+    </div>
+    <a class="btn btn-outline-secondary" href="{% url 'admin_portal:users_list' %}">Назад</a>
+</div>
+
+<div class="card p-4">
+    <div class="mb-3">
+        <p class="mb-1">Пользователь: <strong>{{ user_data.full_name }}</strong></p>
+        <p class="text-muted mb-0">Логин: {{ user_data.username }} · Текущий статус: {{ user_data.status_text }}</p>
+    </div>
+    <div class="alert {% if action == 'lock' %}alert-warning{% else %}alert-success{% endif %}">
+        {% if action == 'lock' %}
+            Действие отключит доступ пользователя. Это действие можно отменить через раздельную разблокировку.
+        {% else %}
+            Пользователь будет снова активен и сможет войти.
+        {% endif %}
+    </div>
+    <form method="post">
+        {% csrf_token %}
+        <div class="d-flex gap-2 flex-wrap">
+            <button type="submit" class="btn {% if action == 'lock' %}btn-danger{% else %}btn-success{% endif %}">{% if action == 'lock' %}Блокировать{% else %}Разблокировать{% endif %}</button>
+            <a class="btn btn-outline-secondary" href="{% url 'admin_portal:users_list' %}">Отменить</a>
+        </div>
+    </form>
+</div>
+{% endblock %}

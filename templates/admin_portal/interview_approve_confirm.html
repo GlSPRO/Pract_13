@@ -1,0 +1,25 @@
+{% extends "base.html" %}
+{% block title %}Подтвердить кандидата{% endblock %}
+{% block content %}
+<div class="d-flex flex-wrap align-items-center justify-content-between mb-3">
+    <div>
+        <div class="small-label">Администратор</div>
+        <h1 class="h4 mb-0">Подтвердить кандидата</h1>
+    </div>
+    <a class="btn btn-outline-secondary" href="{% url 'admin_portal:interview_approvals' %}">К списку</a>
+</div>
+
+<div class="card p-4">
+    <p class="mb-1">Кандидат: <strong>{{ interview.candidate_name }}</strong></p>
+    <p class="mb-1">Телефон: {{ interview.phone }}</p>
+    <p class="mb-3">Собеседование: {{ interview.interview_at|date:"d.m.Y H:i" }} ({{ interview.workshop }})</p>
+    <div class="alert alert-warning">Будет создана учетная запись сотрудника и назначена группа «Сотрудник».</div>
+    <form method="post">
+        {% csrf_token %}
+        <div class="d-flex gap-2">
+            <button type="submit" class="btn btn-primary">Подтвердить и создать учетку</button>
+            <a class="btn btn-outline-secondary" href="{% url 'admin_portal:interview_approvals' %}">Отмена</a>
+        </div>
+    </form>
+</div>
+{% endblock %}

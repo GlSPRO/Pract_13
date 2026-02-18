@@ -1,0 +1,71 @@
+{% extends "base.html" %}
+{% block title %}Заявки профиля{% endblock %}
+{% block content %}
+<div class="d-flex flex-wrap align-items-center justify-content-between mb-3">
+    <div>
+        <div class="small-label">HR менеджер</div>
+        <h1 class="h4 mb-0">Заявки на изменение профиля</h1>
+    </div>
+</div>
+
+<div class="card p-3 mb-3">
+    <form class="row g-2">
+        <div class="col-12 col-md-4">
+            <label class="form-label">Статус</label>
+            <select class="form-select" name="status">
+                <option value="">Все</option>
+                {% for code, title in status_choices %}
+                    <option value="{{ code }}" {% if current_status == code %}selected{% endif %}>{{ title }}</option>
+                {% endfor %}
+            </select>
+        </div>
+        <div class="col-12 col-md-2 d-flex align-items-end gap-2">
+            <button class="btn btn-primary w-100" type="submit">Фильтр</button>
+        </div>
+    </form>
+</div>
+
+<div class="card p-3">
+    <div class="table-responsive">
+        <table class="table table-sm align-middle mb-0">
+            <thead>
+                <tr>
+                    <th>Дата</th>
+                    <th>Сотрудник</th>
+                    <th>Поле</th>
+                    <th>Новое значение</th>
+                    <th>Статус</th>
+                    <th class="text-end">Решение</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for item in requests_list %}
+                <tr>
+                    <td>{{ item.created_at|date:"d.m.Y H:i" }}</td>
+                    <td>{{ item.employee.profile.full_name|default:item.employee.username }}</td>
+                    <td>{{ item.field_label }}</td>
+                    <td>{{ item.new_value }}</td>
+                    <td>{{ item.get_status_display }}</td>
+                    <td class="text-end">
+                        {% if item.status == "new" or item.status == "review" %}
+                        <div class="table-actions justify-content-end">
+                            <form method="post" action="{% url 'hr_portal:profile_request_decision' item.id 'approve' %}">
+                                {% csrf_token %}
+                                <button class="btn btn-outline-success btn-sm" type="submit">Подтвердить</button>
+                            </form>
+                            <form method="post" action="{% url 'hr_portal:profile_request_decision' item.id 'reject' %}">
+                                {% csrf_token %}
+                                <button class="btn btn-outline-danger btn-sm" type="submit">Отклонить</button>
+                            </form>
+                        </div>
+                        {% endif %}
+                    </td>
+                </tr>
+                {% empty %}
+                <tr><td colspan="6"><div class="empty-state">Заявок нет</div></td></tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}
