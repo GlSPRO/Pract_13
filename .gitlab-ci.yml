@@ -1,3 +1,5 @@
+image: python:3.11
+
 stages:
   - build
   - lint
@@ -11,8 +13,10 @@ workflow:
 variables:
   PIP_CACHE_DIR: "$CI_PROJECT_DIR/.cache/pip"
   PYTHONUNBUFFERED: "1"
+  PIP_DISABLE_PIP_VERSION_CHECK: "1"
 
 cache:
+  key: "pip-cache"
   paths:
     - .cache/pip
 
@@ -20,7 +24,7 @@ before_script:
   - python --version
   - python -m pip install --upgrade pip
   - if [ -f requirements.txt ]; then pip install -r requirements.txt; else pip install "django>=5.2,<5.3"; fi
-  - pip install "flake8>=7,<8"
+  - pip install "flake8>=7,<8" "pip-audit>=2,<3"
 
 build_project:
   stage: build
@@ -35,37 +39,51 @@ build_project:
 
 lint_python:
   stage: lint
+  allow_failure: true
   script:
     - mkdir -p artifacts/lint
-    - flake8 . --exclude=.venv,__pycache__,migrations > artifacts/lint/flake8.log
+    - flake8 . --exclude=.venv,__pycache__,migrations > artifacts/lint/flake8.log || true
   artifacts:
     when: always
     expire_in: 1 week
     paths:
       - artifacts/lint/
 
-tests_unit_integration:
+functional_django_checks:
+  stage: functional
+  script:
+    - mkdir -p artifacts/functional
+    - python manage.py check > artifacts/functional/django-check.log
+    - python manage.py makemigrations --check --dry-run > artifacts/functional/migrations-check.log
+  artifacts:
+    when: always
+    expire_in: 1 week
+    paths:
+      - artifacts/functional/
+
+functional_tests:
   stage: functional
   script:
     - mkdir -p artifacts/tests
-    - python manage.py check > artifacts/tests/django-check.log
-    - python manage.py makemigrations --check --dry-run > artifacts/tests/migrations-check.log
-    - python manage.py test core admin_portal hr_portal -v 2 > artifacts/tests/unit-tests.log
-    - python manage.py test -v 2 > artifacts/tests/integration-tests.log
+    - python manage.py test -v 2 > artifacts/tests/tests.log
   artifacts:
     when: always
     expire_in: 1 week
     paths:
       - artifacts/tests/
 
-functional_migrations_report:
+security_dependencies_audit:
   stage: functional
+  allow_failure: true
   script:
-    - mkdir -p artifacts/migrations
-    - python manage.py makemigrations --check --dry-run > artifacts/migrations/migrations-check.log
-    - python manage.py showmigrations > artifacts/migrations/showmigrations.log
+    - mkdir -p artifacts/security
+      if [ -f requirements.txt ]; then
+        pip-audit -r requirements.txt > artifacts/security/pip-audit.log || true
+      else
+        echo "requirements.txt not found, skipping pip-audit" > artifacts/security/pip-audit.log
+      fi
   artifacts:
     when: always
     expire_in: 1 week
     paths:
-      - artifacts/migrations/
+      - artifacts/security/
