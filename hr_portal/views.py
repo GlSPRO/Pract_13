@@ -12,15 +12,24 @@ from django.utils import timezone
 from admin_portal.models import AuditLog
 from admin_portal.utils import hr_required, is_hr
 from core.telegram_utils import build_start_link
-from core.models import EmployeeTask, LeaveRequest, Profile, ProfileChangeRequest
+from core.models import (
+    EmployeeTask,
+    EmployeeZoneAccess,
+    LeaveRequest,
+    Profile,
+    ProfileChangeRequest,
+    UpskillDirective,
+)
 from hr_portal.forms import (
     EmployeeTaskCreateForm,
+    EmployeeProfileUpdateForm,
     InterviewCreateForm,
     InterviewUpdateForm,
     ShiftAssignmentCreateForm,
     ShiftAssignmentReassignForm,
+    UpskillDirectiveCreateForm,
 )
-from hr_portal.models import InterviewRequest, InterviewTelegramInvite, ShiftAssignment
+from hr_portal.models import HiringRequest, InterviewRequest, InterviewTelegramInvite, ShiftAssignment
 
 
 class HRLoginView(auth_views.LoginView):
@@ -127,12 +136,17 @@ def employees(request):
     employees_list = []
     for user in users_qs:
         profile = getattr(user, "profile", None)
+        access_list = list(
+            user.zone_accesses.filter(is_active=True).values_list("zone", flat=True)
+        )
         employees_list.append(
             {
+                "id": user.id,
                 "username": user.username,
                 "full_name": profile.full_name if profile else user.username,
                 "position": profile.position if profile and profile.position else "Не указана",
                 "status": "Активен" if user.is_active else "Заблокирован",
+                "zones": ", ".join(access_list) if access_list else "Нет допуска",
             }
         )
 
@@ -143,6 +157,137 @@ def employees(request):
         "employees": employees_list,
     }
     return render(request, "hr_portal/employees.html", context)
+
+
+@hr_required
+def employee_edit(request, user_id: int):
+    user_instance = get_object_or_404(
+        User.objects.filter(groups__name="Сотрудник").select_related("profile").distinct(),
+        pk=user_id,
+    )
+
+    if request.method == "POST":
+        form = EmployeeProfileUpdateForm(request.POST, user_instance=user_instance)
+        if form.is_valid():
+            profile, _ = Profile.objects.get_or_create(
+                user=user_instance,
+                defaults={"full_name": user_instance.username, "position": ""},
+            )
+            profile.full_name = form.cleaned_data["full_name"]
+            selected_position = form.cleaned_data["position"]
+            profile.position = selected_position.name if selected_position else ""
+            profile.save(update_fields=["full_name", "position"])
+            AuditLog.objects.create(
+                actor=request.user,
+                action="update",
+                object_type="employee_profile",
+                object_id=str(user_instance.pk),
+                details=f"HR обновил профиль сотрудника {user_instance.username}",
+            )
+            messages.success(request, "Данные сотрудника сохранены.")
+            return redirect("hr_portal:employees")
+    else:
+        form = EmployeeProfileUpdateForm(user_instance=user_instance)
+
+    context = {
+        "hide_shell": False,
+        "portal_type": "hr",
+        "active_section": "employees",
+        "form": form,
+        "employee_user": user_instance,
+    }
+    return render(request, "hr_portal/employee_edit.html", context)
+
+
+@hr_required
+def qualification_control(request):
+    status_filter = request.GET.get("status")
+    employee_filter = request.GET.get("employee")
+    qs = UpskillDirective.objects.select_related("employee", "employee__profile", "created_by")
+    if status_filter:
+        qs = qs.filter(status=status_filter)
+    if employee_filter:
+        qs = qs.filter(employee__username__icontains=employee_filter)
+    context = {
+        "hide_shell": False,
+        "portal_type": "hr",
+        "active_section": "qualification",
+        "items": qs.order_by("-created_at"),
+        "status_choices": UpskillDirective.STATUS_CHOICES,
+        "current_status": status_filter or "",
+    }
+    return render(request, "hr_portal/qualification_control.html", context)
+
+
+@hr_required
+def qualification_create(request):
+    if request.method == "POST":
+        form = UpskillDirectiveCreateForm(request.POST)
+        if form.is_valid():
+            item = form.save(commit=False)
+            item.created_by = request.user
+            item.status = UpskillDirective.STATUS_ASSIGNED
+            item.save()
+            AuditLog.objects.create(
+                actor=request.user,
+                action="create",
+                object_type="upskill_directive",
+                object_id=str(item.pk),
+                details=f"Назначено повышение квалификации {item.employee.username} -> {item.target_zone}",
+            )
+            messages.success(request, "Назначение на повышение квалификации создано.")
+            return redirect("hr_portal:qualification_control")
+    else:
+        form = UpskillDirectiveCreateForm()
+
+    context = {
+        "hide_shell": False,
+        "portal_type": "hr",
+        "active_section": "qualification",
+        "form": form,
+    }
+    return render(request, "hr_portal/qualification_form.html", context)
+
+
+@hr_required
+def qualification_set_status(request, item_id: int, decision: str):
+    item = get_object_or_404(UpskillDirective, pk=item_id)
+    if request.method == "POST":
+        if decision == "in_progress":
+            item.status = UpskillDirective.STATUS_IN_PROGRESS
+            messages.info(request, "Статус переведен в 'В обучении'.")
+        elif decision == "approve":
+            if not item.employee_certificate:
+                messages.error(request, "Нельзя подтвердить допуск без загруженного сертификата сотрудника.")
+                return redirect("hr_portal:qualification_control")
+            item.status = UpskillDirective.STATUS_APPROVED
+            access, _ = EmployeeZoneAccess.objects.get_or_create(
+                employee=item.employee,
+                zone=item.target_zone,
+                defaults={
+                    "qualification_level": item.target_level,
+                    "is_active": True,
+                    "granted_by": request.user,
+                },
+            )
+            access.qualification_level = item.target_level
+            access.is_active = True
+            access.granted_by = request.user
+            access.save()
+            messages.success(request, "Квалификация подтверждена. Допуск к зоне выдан.")
+        elif decision == "reject":
+            item.status = UpskillDirective.STATUS_REJECTED
+            messages.warning(request, "Повышение квалификации отклонено.")
+        item.hr_comment = request.POST.get("hr_comment", "").strip()
+        item.save(update_fields=["status", "hr_comment", "updated_at"])
+        AuditLog.objects.create(
+            actor=request.user,
+            action="update",
+            object_type="upskill_directive",
+            object_id=str(item.pk),
+            details=f"HR {decision}: {item.employee.username} / {item.target_zone}",
+        )
+    return redirect("hr_portal:qualification_control")
 
 
 @hr_required
@@ -341,6 +486,9 @@ def interviews(request):
         "portal_type": "hr",
         "active_section": "interviews",
         "interviews": rows,
+        "hiring_recommendations": HiringRequest.objects.exclude(status=HiringRequest.STATUS_CLOSED)
+        .select_related("created_by")
+        .order_by("status", "-created_at")[:8],
         "status_choices": InterviewRequest.STATUS_CHOICES,
         "current_status": status_filter or "",
     }

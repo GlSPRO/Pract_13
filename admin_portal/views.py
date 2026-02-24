@@ -1,4 +1,3 @@
-import json
 import re
 import secrets
 from datetime import timedelta
@@ -15,12 +14,12 @@ from django.db.models import Q
 from django.shortcuts import get_object_or_404, redirect, render
 from django.utils import timezone
 
-from admin_portal.forms import UserCreateForm, UserUpdateForm, ensure_group
+from admin_portal.forms import HiringRequestCreateForm, UserCreateForm, UserUpdateForm, ensure_group
 from admin_portal.models import AuditLog
 from admin_portal.utils import admin_required, is_admin
 from core.telegram_utils import send_telegram_message
 from core.models import Profile
-from hr_portal.models import InterviewRequest
+from hr_portal.models import HiringRequest, InterviewRequest, ShiftAssignment
 
 GROUP_CODES = {
     "admin": "Администратор",
@@ -125,65 +124,31 @@ def _build_replacements_trend(period: str):
     return {"labels": labels, "values": values}
 
 
-def _generate_candidate_username(full_name: str, phone: str) -> str:
-    slug = re.sub(r"[^a-z0-9]+", "", full_name.lower().replace(" ", ""))[:8]
-    digits = "".join(ch for ch in phone if ch.isdigit())
-    base = f"{slug or 'emp'}{digits[-4:] if digits else ''}"
-    username = base or "emp"
-    counter = 1
-    while User.objects.filter(username=username).exists():
-        username = f"{base}{counter}"
-        counter += 1
-    return username
+def _build_shift_analytics(period: str):
+    now = timezone.localtime()
+    days = 30 if period == "30d" else 7
+    start_date = now.date() - timedelta(days=days - 1)
+    end_date = now.date()
+    shifts = ShiftAssignment.objects.filter(date__gte=start_date, date__lte=end_date)
 
+    workshop_map = {}
+    hourly_map = {}
+    for shift in shifts:
+        row = workshop_map.setdefault(
+            shift.workshop,
+            {"name": shift.workshop, "planned": 0, "actual": 0},
+        )
+        row["planned"] += shift.planned_staff
+        row["actual"] += shift.assigned_staff
 
-@admin_required
-def dashboard(request):
-    users_qs = User.objects.all().select_related("profile").prefetch_related("groups")
-    total = users_qs.count()
-    active = users_qs.filter(is_active=True).count()
-    locked = total - active
+        shortage = max(0, shift.planned_staff - shift.assigned_staff)
+        hour_label = shift.start_time.strftime("%H:00")
+        hourly_map[hour_label] = hourly_map.get(hour_label, 0) + shortage
 
-    group_overview = []
-    for code, title in GROUP_CODES.items():
-        group = Group.objects.filter(name=title).first()
-        count = group.user_set.count() if group else 0
-        active_count = group.user_set.filter(is_active=True).count() if group else 0
-        group_overview.append({"name": title, "count": count, "active": active_count})
+    workshop_rows = list(workshop_map.values())
+    if not workshop_rows:
+        workshop_rows = [{"name": name, "planned": 0, "actual": 0} for name, _ in ShiftAssignment.WORKSHOP_CHOICES]
 
-    recent_actions = AuditLog.objects.select_related("actor")[:5]
-    recent_actions_ctx = [
-        {
-            "actor": log.actor.get_full_name() or log.actor.get_username() if log.actor else "—",
-            "timestamp": log.created_at.strftime("%d.%m %H:%M"),
-            "action": log.get_action_display(),
-            "object": f"{log.object_type}:{log.object_id}",
-        }
-        for log in recent_actions
-    ]
-
-    dashboard_stats = [
-        {"label": "Всего пользователей", "value": total, "subtitle": "Аккаунты портала", "delta": "", "icon": "bi-people"},
-        {"label": "Активны", "value": active, "subtitle": "Могут войти", "delta": "", "icon": "bi-shield-check"},
-        {"label": "Заблокированы", "value": locked, "subtitle": "Требуют разблокировки", "delta": "", "icon": "bi-lock"},
-        {"label": "Группы", "value": len(GROUP_CODES), "subtitle": "RBAC роли", "delta": "", "icon": "bi-diagram-3"},
-    ]
-
-    reminders = [
-        {"title": "Проверьте блокировки", "text": "Заблокированы только неактуальные учетные записи."},
-        {"title": "Обновите роли", "text": "Перед запуском смен убедитесь, что группы назначены корректно."},
-    ]
-
-    period = request.GET.get("period", "7d")
-    replacements_data = _build_replacements_trend(period)
-    replacement_count = sum(replacements_data["values"])
-
-    workshop_rows = [
-        {"name": "Горячий цех", "planned": 14, "actual": 12},
-        {"name": "Холодный цех", "planned": 10, "actual": 11},
-        {"name": "Кондитерский участок", "planned": 8, "actual": 7},
-        {"name": "Фасовка", "planned": 9, "actual": 9},
-    ]
     for row in workshop_rows:
         row["delta"] = row["actual"] - row["planned"]
         row["load_ratio"] = round((row["actual"] / row["planned"]) * 100, 1) if row["planned"] else 0
@@ -200,17 +165,137 @@ def dashboard(request):
     total_excess = sum(item["delta"] for item in workshop_rows if item["delta"] > 0)
     global_load_ratio = round((total_actual / total_planned) * 100, 1) if total_planned else 0
 
-    hourly_shortage = [
-        {"hour": "06:00", "shortage": 1},
-        {"hour": "08:00", "shortage": 3},
-        {"hour": "10:00", "shortage": 2},
-        {"hour": "12:00", "shortage": 4},
-        {"hour": "14:00", "shortage": 3},
-        {"hour": "16:00", "shortage": 2},
-        {"hour": "18:00", "shortage": 1},
-        {"hour": "20:00", "shortage": 0},
-    ]
+    if hourly_map:
+        hourly_shortage = [
+            {"hour": hour, "shortage": hourly_map[hour]}
+            for hour in sorted(hourly_map.keys())
+        ]
+    else:
+        hourly_shortage = [{"hour": hour, "shortage": 0} for hour in ["06:00", "08:00", "10:00", "12:00", "14:00"]]
     peak_hour = max(hourly_shortage, key=lambda item: item["shortage"])
+
+    return {
+        "workshop_rows": workshop_rows,
+        "hourly_shortage": hourly_shortage,
+        "peak_hour": peak_hour,
+        "total_shortage": total_shortage,
+        "total_excess": total_excess,
+        "global_load_ratio": global_load_ratio,
+    }
+
+
+def _generate_candidate_username(full_name: str, phone: str) -> str:
+    slug = re.sub(r"[^a-z0-9]+", "", full_name.lower().replace(" ", ""))[:8]
+    digits = "".join(ch for ch in phone if ch.isdigit())
+    base = f"{slug or 'emp'}{digits[-4:] if digits else ''}"
+    username = base or "emp"
+    counter = 1
+    while User.objects.filter(username=username).exists():
+        username = f"{base}{counter}"
+        counter += 1
+    return username
+
+
+@admin_required
+def dashboard(request):
+    if request.method == "POST":
+        hiring_form = HiringRequestCreateForm(request.POST)
+        if hiring_form.is_valid():
+            hiring_request = hiring_form.save(commit=False)
+            hiring_request.created_by = request.user
+            hiring_request.status = HiringRequest.STATUS_OPEN
+            hiring_request.save()
+            AuditLog.objects.create(
+                actor=request.user,
+                action="create",
+                object_type="hiring_request",
+                object_id=str(hiring_request.pk),
+                details=(
+                    f"Создана заявка HR: {hiring_request.workshop}, "
+                    f"требуется {hiring_request.required_count} чел."
+                ),
+            )
+            messages.success(request, "Заявка для HR на подбор сотрудников создана.")
+            return redirect("admin_portal:dashboard")
+    else:
+        hiring_form = HiringRequestCreateForm()
+
+    users_qs = User.objects.all().select_related("profile").prefetch_related("groups")
+    total = users_qs.count()
+    active = users_qs.filter(is_active=True).count()
+    locked = total - active
+
+    group_overview = []
+    for code, title in GROUP_CODES.items():
+        group = Group.objects.filter(name=title).first()
+        count = group.user_set.count() if group else 0
+        active_count = group.user_set.filter(is_active=True).count() if group else 0
+        group_overview.append({"name": title, "count": count, "active": active_count})
+
+    recent_actions = AuditLog.objects.select_related("actor")[:5]
+    recent_actions_ctx = [
+        {
+            "actor": log.actor.get_full_name() or log.actor.get_username() if log.actor else "-",
+            "timestamp": log.created_at.strftime("%d.%m %H:%M"),
+            "action": log.get_action_display(),
+            "object": f"{log.object_type}:{log.object_id}",
+        }
+        for log in recent_actions
+    ]
+
+    dashboard_stats = [
+        {
+            "label": "Всего пользователей",
+            "value": total,
+            "subtitle": "Аккаунты портала",
+            "delta": "",
+            "icon": "bi-people",
+        },
+        {
+            "label": "Активны",
+            "value": active,
+            "subtitle": "Могут войти",
+            "delta": "",
+            "icon": "bi-shield-check",
+        },
+        {
+            "label": "Заблокированы",
+            "value": locked,
+            "subtitle": "Требуют разблокировки",
+            "delta": "",
+            "icon": "bi-lock",
+        },
+        {
+            "label": "Группы",
+            "value": len(GROUP_CODES),
+            "subtitle": "RBAC роли",
+            "delta": "",
+            "icon": "bi-diagram-3",
+        },
+    ]
+
+    reminders = [
+        {
+            "title": "Проверьте блокировки",
+            "text": "Заблокированы только неактуальные учетные записи.",
+        },
+        {
+            "title": "Обновите роли",
+            "text": "Перед запуском смен убедитесь, что группы назначены корректно.",
+        },
+    ]
+
+    period = request.GET.get("period", "7d")
+    replacements_data = _build_replacements_trend(period)
+    replacement_count = sum(replacements_data["values"])
+
+    shift_analytics = _build_shift_analytics(period)
+    workshop_rows = shift_analytics["workshop_rows"]
+    hourly_shortage = shift_analytics["hourly_shortage"]
+    peak_hour = shift_analytics["peak_hour"]
+    total_shortage = shift_analytics["total_shortage"]
+    total_excess = shift_analytics["total_excess"]
+    global_load_ratio = shift_analytics["global_load_ratio"]
 
     load_chart_payload = {
         "labels": [row["name"] for row in workshop_rows],
@@ -225,6 +310,10 @@ def dashboard(request):
         "labels": replacements_data["labels"],
         "values": replacements_data["values"],
     }
+
+    active_hiring_requests = HiringRequest.objects.select_related("created_by").exclude(
+        status=HiringRequest.STATUS_CLOSED
+    )[:6]
 
     context = {
         "hide_shell": False,
@@ -242,9 +331,11 @@ def dashboard(request):
         "workshop_rows": workshop_rows,
         "peak_hour": peak_hour,
         "period": period,
-        "load_chart_json": json.dumps(load_chart_payload, ensure_ascii=False),
-        "shortage_chart_json": json.dumps(shortage_chart_payload, ensure_ascii=False),
-        "replacements_chart_json": json.dumps(replacements_chart_payload, ensure_ascii=False),
+        "load_chart_json": load_chart_payload,
+        "shortage_chart_json": shortage_chart_payload,
+        "replacements_chart_json": replacements_chart_payload,
+        "hiring_form": hiring_form,
+        "active_hiring_requests": active_hiring_requests,
     }
     return render(request, "admin_portal/dashboard.html", context)
 

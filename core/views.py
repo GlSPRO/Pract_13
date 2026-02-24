@@ -1,5 +1,6 @@
 import json
 import secrets
+from datetime import timedelta
 
 from django.contrib import messages
 from django.contrib.auth import logout
@@ -13,11 +14,41 @@ from django.views.decorators.csrf import csrf_exempt
 
 from admin_portal.models import AuditLog
 from admin_portal.utils import employee_required, is_admin, is_employee, is_hr
-from core.forms import LeaveRequestForm, ProfileChangeRequestForm
+from core.forms import EmployeeQualificationConfirmForm, LeaveRequestForm, ProfileChangeRequestForm
 from core.telegram_utils import send_telegram_message
-from core.models import EmployeeTask, LeaveRequest, Profile, ProfileChangeRequest
+from core.models import (
+    EmployeeTask,
+    EmployeeZoneAccess,
+    LeaveRequest,
+    Profile,
+    ProfileChangeRequest,
+    UpskillDirective,
+)
 from hr_portal.models import InterviewTelegramInvite
 from hr_portal.models import ShiftAssignment
+
+
+def _experience_parts(start_date, end_date):
+    if end_date < start_date:
+        return {"years": 0, "months": 0, "days": 0}
+
+    years = end_date.year - start_date.year
+    months = end_date.month - start_date.month
+    days = end_date.day - start_date.day
+
+    if days < 0:
+        prev_month_last_day = end_date.replace(day=1) - timedelta(days=1)
+        days += prev_month_last_day.day
+        months -= 1
+
+    if months < 0:
+        months += 12
+        years -= 1
+
+    if years < 0:
+        years = 0
+
+    return {"years": years, "months": months, "days": days}
 
 
 def _resolve_home_url(user):
@@ -81,6 +112,9 @@ def employee_dashboard(request):
     profile_pending = request.user.profile_change_requests.filter(
         status__in=[ProfileChangeRequest.STATUS_NEW, ProfileChangeRequest.STATUS_REVIEW]
     ).count()
+    qualification_open = request.user.upskill_directives.filter(
+        status__in=[UpskillDirective.STATUS_ASSIGNED, UpskillDirective.STATUS_IN_PROGRESS]
+    ).count()
 
     context = {
         "hide_shell": False,
@@ -92,6 +126,7 @@ def employee_dashboard(request):
             {"label": "Невыполненные задачи", "value": pending_tasks},
             {"label": "Заявки по отпускам", "value": leave_open},
             {"label": "Заявки на профиль", "value": profile_pending},
+            {"label": "Назначения на квалификацию", "value": qualification_open},
         ],
     }
     return render(request, "employee/dashboard.html", context)
@@ -122,12 +157,17 @@ def employee_profile(request):
         form = ProfileChangeRequestForm()
 
     requests = request.user.profile_change_requests.all()[:10]
+    exp = _experience_parts(profile.created_at.date(), timezone.localdate()) if profile.created_at else {
+        "years": 0,
+        "months": 0,
+        "days": 0,
+    }
     context = {
         "hide_shell": False,
         "portal_type": "employee",
         "active_section": "profile",
         "profile": profile,
-        "experience_days": (timezone.localdate() - profile.created_at.date()).days if profile.created_at else 0,
+        "experience_parts": exp,
         "form": form,
         "requests": requests,
     }
@@ -206,6 +246,65 @@ def employee_tasks(request):
         "tasks": tasks,
     }
     return render(request, "employee/tasks.html", context)
+
+
+@employee_required
+def employee_qualification(request):
+    accesses = request.user.zone_accesses.filter(is_active=True).order_by("zone")
+    directives = request.user.upskill_directives.all()
+    directive_rows = []
+    for directive in directives:
+        form = None
+        if directive.status in [UpskillDirective.STATUS_ASSIGNED, UpskillDirective.STATUS_IN_PROGRESS]:
+            form = EmployeeQualificationConfirmForm(prefix=f"directive-{directive.id}")
+        directive_rows.append({"item": directive, "form": form})
+    context = {
+        "hide_shell": False,
+        "portal_type": "employee",
+        "active_section": "qualification",
+        "accesses": accesses,
+        "directive_rows": directive_rows,
+    }
+    return render(request, "employee/qualification.html", context)
+
+
+@employee_required
+def confirm_qualification(request, directive_id: int):
+    directive = get_object_or_404(UpskillDirective, pk=directive_id, employee=request.user)
+    if request.method == "POST":
+        if directive.status in [UpskillDirective.STATUS_ASSIGNED, UpskillDirective.STATUS_IN_PROGRESS]:
+            form = EmployeeQualificationConfirmForm(
+                request.POST,
+                request.FILES,
+                prefix=f"directive-{directive.id}",
+            )
+            if form.is_valid():
+                directive.status = UpskillDirective.STATUS_EMPLOYEE_CONFIRMED
+                directive.employee_comment = form.cleaned_data["employee_comment"].strip()
+                directive.employee_certificate = form.cleaned_data["employee_certificate"]
+                directive.employee_certificate_uploaded_at = timezone.now()
+                directive.save(
+                    update_fields=[
+                        "status",
+                        "employee_comment",
+                        "employee_certificate",
+                        "employee_certificate_uploaded_at",
+                        "updated_at",
+                    ]
+                )
+                AuditLog.objects.create(
+                    actor=request.user,
+                    action="update",
+                    object_type="upskill_directive",
+                    object_id=str(directive.pk),
+                    details=f"Сотрудник отправил сертификат о квалификации: {directive.target_zone}",
+                )
+                messages.success(request, "Сертификат отправлен HR. Ожидайте подтверждения допуска.")
+            else:
+                for errors in form.errors.values():
+                    for error in errors:
+                        messages.error(request, error)
+    return redirect("core:employee_qualification")
 
 
 @employee_required

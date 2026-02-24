@@ -2,6 +2,28 @@ from django.conf import settings
 from django.db import models
 
 
+ZONE_CHOICES = [
+    ("Горячий цех", "Горячий цех"),
+    ("Холодный цех", "Холодный цех"),
+    ("Кондитерский участок", "Кондитерский участок"),
+    ("Фасовка", "Фасовка"),
+]
+
+
+class JobPosition(models.Model):
+    name = models.CharField("Название должности", max_length=150, unique=True)
+    is_active = models.BooleanField("Активна", default=True)
+    sort_order = models.PositiveSmallIntegerField("Порядок", default=100)
+
+    class Meta:
+        ordering = ["sort_order", "name"]
+        verbose_name = "Должность"
+        verbose_name_plural = "Справочник должностей"
+
+    def __str__(self) -> str:
+        return self.name
+
+
 class Profile(models.Model):
     user = models.OneToOneField(
         settings.AUTH_USER_MODEL,
@@ -124,3 +146,94 @@ class EmployeeTask(models.Model):
         ordering = ["-priority", "status", "due_date", "-created_at"]
         verbose_name = "Задача сотрудника"
         verbose_name_plural = "Задачи сотрудников"
+
+
+class EmployeeZoneAccess(models.Model):
+    LEVEL_BASIC = "basic"
+    LEVEL_MIDDLE = "middle"
+    LEVEL_HIGH = "high"
+    LEVEL_CHOICES = [
+        (LEVEL_BASIC, "Базовая"),
+        (LEVEL_MIDDLE, "Средняя"),
+        (LEVEL_HIGH, "Высокая"),
+    ]
+
+    employee = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name="zone_accesses",
+        verbose_name="Сотрудник",
+    )
+    zone = models.CharField("Зона/участок", max_length=64, choices=ZONE_CHOICES)
+    qualification_level = models.CharField("Уровень квалификации", max_length=20, choices=LEVEL_CHOICES)
+    is_active = models.BooleanField("Активно", default=True)
+    granted_at = models.DateTimeField("Выдано", auto_now_add=True)
+    granted_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="granted_zone_accesses",
+        verbose_name="Кто выдал",
+    )
+
+    class Meta:
+        unique_together = ("employee", "zone")
+        verbose_name = "Допуск к зоне"
+        verbose_name_plural = "Допуски к зонам"
+
+
+class UpskillDirective(models.Model):
+    STATUS_ASSIGNED = "assigned"
+    STATUS_IN_PROGRESS = "in_progress"
+    STATUS_EMPLOYEE_CONFIRMED = "employee_confirmed"
+    STATUS_APPROVED = "approved"
+    STATUS_REJECTED = "rejected"
+    STATUS_CHOICES = [
+        (STATUS_ASSIGNED, "Назначено HR"),
+        (STATUS_IN_PROGRESS, "В обучении"),
+        (STATUS_EMPLOYEE_CONFIRMED, "Сотрудник подтвердил прохождение"),
+        (STATUS_APPROVED, "Подтверждено HR"),
+        (STATUS_REJECTED, "Отклонено HR"),
+    ]
+
+    employee = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name="upskill_directives",
+        verbose_name="Сотрудник",
+    )
+    target_zone = models.CharField("Целевая зона", max_length=64, choices=ZONE_CHOICES)
+    target_level = models.CharField(
+        "Целевой уровень",
+        max_length=20,
+        choices=EmployeeZoneAccess.LEVEL_CHOICES,
+        default=EmployeeZoneAccess.LEVEL_BASIC,
+    )
+    rationale = models.TextField("Обоснование необходимости")
+    status = models.CharField("Статус", max_length=30, choices=STATUS_CHOICES, default=STATUS_ASSIGNED)
+    planned_date = models.DateField("Плановая дата", null=True, blank=True)
+    employee_comment = models.TextField("Комментарий сотрудника", blank=True)
+    employee_certificate = models.FileField(
+        "Сертификат сотрудника",
+        upload_to="qualification_certificates/",
+        blank=True,
+        null=True,
+    )
+    employee_certificate_uploaded_at = models.DateTimeField("Сертификат загружен", null=True, blank=True)
+    hr_comment = models.TextField("Комментарий HR", blank=True)
+    created_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="created_upskill_directives",
+        verbose_name="Назначил HR",
+    )
+    created_at = models.DateTimeField("Создано", auto_now_add=True)
+    updated_at = models.DateTimeField("Обновлено", auto_now=True)
+
+    class Meta:
+        ordering = ["-created_at"]
+        verbose_name = "Назначение на повышение квалификации"
+        verbose_name_plural = "Назначения на повышение квалификации"

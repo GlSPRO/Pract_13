@@ -5,9 +5,16 @@ from django.core.management.base import BaseCommand
 from django.utils import timezone
 
 from admin_portal.models import AuditLog
-from core.models import EmployeeTask, LeaveRequest, Profile, ProfileChangeRequest
-from hr_portal.models import InterviewRequest
-from hr_portal.models import ShiftAssignment
+from core.models import (
+    EmployeeTask,
+    EmployeeZoneAccess,
+    JobPosition,
+    LeaveRequest,
+    Profile,
+    ProfileChangeRequest,
+    UpskillDirective,
+)
+from hr_portal.models import HiringRequest, InterviewRequest, ShiftAssignment
 
 
 class Command(BaseCommand):
@@ -18,6 +25,19 @@ class Command(BaseCommand):
         for name in ["Администратор", "HR", "Сотрудник"]:
             group, _ = Group.objects.get_or_create(name=name)
             groups[name] = group
+
+        positions = [
+            "Сотрудник производства",
+            "Повар-универсал",
+            "Кондитер",
+            "Упаковщик",
+            "Кладовщик",
+        ]
+        for index, name in enumerate(positions, start=1):
+            JobPosition.objects.get_or_create(
+                name=name,
+                defaults={"sort_order": index * 10, "is_active": True},
+            )
 
         users_data = [
             ("admin", "admin12345", "Системный Администратор", "Администратор"),
@@ -70,6 +90,8 @@ class Command(BaseCommand):
         ProfileChangeRequest.objects.filter(employee=emp_user).delete()
         LeaveRequest.objects.filter(employee=emp_user).delete()
         EmployeeTask.objects.filter(employee=emp_user).delete()
+        EmployeeZoneAccess.objects.filter(employee=emp_user).delete()
+        UpskillDirective.objects.filter(employee=emp_user).delete()
 
         ProfileChangeRequest.objects.create(
             employee=emp_user,
@@ -110,6 +132,22 @@ class Command(BaseCommand):
             priority=EmployeeTask.PRIORITY_MEDIUM,
             status=EmployeeTask.STATUS_NEW,
             due_date=today + timedelta(days=3),
+        )
+
+        EmployeeZoneAccess.objects.create(
+            employee=emp_user,
+            zone="Фасовка",
+            qualification_level=EmployeeZoneAccess.LEVEL_BASIC,
+            granted_by=created_users["hr"],
+        )
+        UpskillDirective.objects.create(
+            employee=emp_user,
+            target_zone="Горячий цех",
+            target_level=EmployeeZoneAccess.LEVEL_MIDDLE,
+            rationale="Планируем расширить доступ сотрудника для закрытия дефицита на линии.",
+            status=UpskillDirective.STATUS_ASSIGNED,
+            planned_date=today + timedelta(days=5),
+            created_by=created_users["hr"],
         )
 
         # Тестовые собеседования для HR -> Администратор
@@ -186,6 +224,22 @@ class Command(BaseCommand):
             object_type="user",
             object_id=str(created_users["emp"].pk),
             defaults={"details": "Демонстрационная разблокировка"},
+        )
+
+        HiringRequest.objects.all().delete()
+        HiringRequest.objects.create(
+            workshop="Горячий цех",
+            required_count=3,
+            reason="Недобор в утренние смены по графику за неделю.",
+            status=HiringRequest.STATUS_OPEN,
+            created_by=created_users["admin"],
+        )
+        HiringRequest.objects.create(
+            workshop="Кондитерский участок",
+            required_count=2,
+            reason="Рост заказов и дефицит сотрудников в пиковые часы.",
+            status=HiringRequest.STATUS_IN_PROGRESS,
+            created_by=created_users["admin"],
         )
 
         self.stdout.write(self.style.SUCCESS("Тестовые данные созданы/обновлены."))

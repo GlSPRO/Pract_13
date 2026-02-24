@@ -10,6 +10,41 @@
 </div>
 
 <div class="card p-3 mb-3">
+    <div class="d-flex align-items-center justify-content-between mb-2">
+        <div>
+            <div class="small-label">Рекомендации администратора</div>
+            <h2 class="h6 mb-0">Заявки на подбор сотрудников по зонам</h2>
+        </div>
+    </div>
+    <div class="table-responsive">
+        <table class="table table-sm align-middle mb-0">
+            <thead>
+                <tr>
+                    <th>Зона</th>
+                    <th class="text-center">Требуется</th>
+                    <th>Статус</th>
+                    <th>Обоснование</th>
+                    <th>Кем создана</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for rec in hiring_recommendations %}
+                <tr>
+                    <td class="fw-semibold">{{ rec.workshop }}</td>
+                    <td class="text-center">{{ rec.required_count }}</td>
+                    <td>{{ rec.get_status_display }}</td>
+                    <td>{{ rec.reason }}</td>
+                    <td>{% if rec.created_by %}{{ rec.created_by.username }}{% else %}—{% endif %}</td>
+                </tr>
+                {% empty %}
+                <tr><td colspan="5"><div class="empty-state">Открытых рекомендаций нет</div></td></tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<div class="card p-3 mb-3">
     <form class="row g-2">
         <div class="col-12 col-md-5">
             <label class="form-label">Поиск (имя / телефон)</label>

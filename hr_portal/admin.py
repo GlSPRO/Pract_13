@@ -1,3 +1,7 @@
 from django.contrib import admin
 
-# Register your models here.
+from hr_portal.models import InterviewRequest, InterviewTelegramInvite
+
+
+admin.site.register(InterviewRequest)
+admin.site.register(InterviewTelegramInvite)

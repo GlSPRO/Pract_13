@@ -14,7 +14,7 @@
             <div class="small-label mb-2">Профиль</div>
             <p class="mb-1"><strong>ФИО:</strong> {{ profile.full_name }}</p>
             <p class="mb-1"><strong>Должность:</strong> {{ profile.position|default:"Не указана" }}</p>
-            <p class="mb-0"><strong>Стаж:</strong> {{ experience_days }} дней</p>
+            <p class="mb-0"><strong>Стаж:</strong> Год: {{ experience_parts.years }}, Месяцев: {{ experience_parts.months }}, Дней: {{ experience_parts.days }}</p>
         </div>
     </div>
     <div class="col-12 col-xl-7">

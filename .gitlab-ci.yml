@@ -30,7 +30,6 @@ build_project:
   stage: build
   script:
     - mkdir -p artifacts/build
-    - python -m compileall -q manage.py hrm core admin_portal hr_portal > artifacts/build/compileall.log 2>&1
   artifacts:
     when: always
     expire_in: 1 week

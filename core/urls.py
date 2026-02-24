@@ -12,6 +12,12 @@ urlpatterns = [
     path("employee/profile/", views.employee_profile, name="employee_profile"),
     path("employee/schedule/", views.employee_schedule, name="employee_schedule"),
     path("employee/schedule/<int:shift_id>/ack/", views.acknowledge_shift, name="employee_shift_ack"),
+    path("employee/qualification/", views.employee_qualification, name="employee_qualification"),
+    path(
+        "employee/qualification/<int:directive_id>/confirm/",
+        views.confirm_qualification,
+        name="employee_qualification_confirm",
+    ),
     path("employee/leave/", views.employee_leave_requests, name="employee_leave"),
     path("employee/tasks/", views.employee_tasks, name="employee_tasks"),
     path("employee/tasks/<int:task_id>/done/", views.complete_task, name="employee_task_done"),

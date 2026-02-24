@@ -1,0 +1,95 @@
+﻿{% extends "base.html" %}
+{% block title %}Квалификация сотрудников{% endblock %}
+{% block content %}
+<div class="d-flex flex-wrap align-items-center justify-content-between mb-3">
+    <div>
+        <div class="small-label">HR менеджер</div>
+        <h1 class="h4 mb-0">Повышение квалификации</h1>
+    </div>
+    <a class="btn btn-primary" href="{% url 'hr_portal:qualification_create' %}">Назначить обучение</a>
+</div>
+
+<div class="card p-3 mb-3">
+    <form class="row g-2">
+        <div class="col-12 col-md-4">
+            <label class="form-label">Логин сотрудника</label>
+            <input class="form-control" name="employee" value="{{ request.GET.employee }}" placeholder="emp">
+        </div>
+        <div class="col-12 col-md-4">
+            <label class="form-label">Статус</label>
+            <select class="form-select" name="status">
+                <option value="">Все</option>
+                {% for code, title in status_choices %}
+                <option value="{{ code }}" {% if current_status == code %}selected{% endif %}>{{ title }}</option>
+                {% endfor %}
+            </select>
+        </div>
+        <div class="col-12 col-md-2 d-flex align-items-end">
+            <button class="btn btn-primary w-100" type="submit">Фильтр</button>
+        </div>
+    </form>
+</div>
+
+<div class="card p-3">
+    <div class="table-responsive">
+        <table class="table align-middle mb-0">
+            <thead>
+                <tr>
+                    <th>Сотрудник</th>
+                    <th>Целевая зона</th>
+                    <th>Целевой уровень</th>
+                    <th>Обоснование</th>
+                    <th>Статус</th>
+                    <th>Сертификат</th>
+                    <th class="text-end">Действия</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for item in items %}
+                <tr>
+                    <td>{{ item.employee.profile.full_name|default:item.employee.username }}</td>
+                    <td>{{ item.target_zone }}</td>
+                    <td>{{ item.get_target_level_display }}</td>
+                    <td>{{ item.rationale }}</td>
+                    <td>{{ item.get_status_display }}</td>
+                    <td>
+                        {% if item.employee_certificate %}
+                            <a href="{{ item.employee_certificate.url }}" target="_blank" rel="noopener">Открыть</a>
+                            {% if item.employee_certificate_uploaded_at %}
+                                <div class="text-muted-small">{{ item.employee_certificate_uploaded_at|date:"d.m.Y H:i" }}</div>
+                            {% endif %}
+                        {% else %}
+                            <span class="text-muted">Нет</span>
+                        {% endif %}
+                    </td>
+                    <td class="text-end">
+                        {% if item.status == "assigned" %}
+                        <form method="post" action="{% url 'hr_portal:qualification_set_status' item.id 'in_progress' %}" class="d-inline">
+                            {% csrf_token %}
+                            <button class="btn btn-outline-secondary btn-sm" type="submit">В обучении</button>
+                        </form>
+                        {% endif %}
+                        {% if item.status == "employee_confirmed" %}
+                        <div class="table-actions justify-content-end">
+                            <form method="post" action="{% url 'hr_portal:qualification_set_status' item.id 'approve' %}">
+                                {% csrf_token %}
+                                <input type="hidden" name="hr_comment" value="Квалификация подтверждена">
+                                <button class="btn btn-outline-success btn-sm" type="submit">Подтвердить</button>
+                            </form>
+                            <form method="post" action="{% url 'hr_portal:qualification_set_status' item.id 'reject' %}">
+                                {% csrf_token %}
+                                <input type="hidden" name="hr_comment" value="Квалификация не подтверждена">
+                                <button class="btn btn-outline-danger btn-sm" type="submit">Отклонить</button>
+                            </form>
+                        </div>
+                        {% endif %}
+                    </td>
+                </tr>
+                {% empty %}
+                <tr><td colspan="7"><div class="empty-state">Назначений нет</div></td></tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}

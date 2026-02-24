@@ -1,0 +1,83 @@
+﻿{% extends "base.html" %}
+{% block title %}Квалификация сотрудника{% endblock %}
+{% block content %}
+<div class="d-flex flex-wrap align-items-center justify-content-between mb-3">
+    <div>
+        <div class="small-label">Сотрудник</div>
+        <h1 class="h4 mb-0">Квалификация и допуски</h1>
+    </div>
+</div>
+
+<div class="card p-3 mb-3">
+    <div class="small-label mb-2">Мои активные допуски</div>
+    <div class="table-responsive">
+        <table class="table table-sm align-middle mb-0">
+            <thead>
+                <tr>
+                    <th>Зона</th>
+                    <th>Уровень</th>
+                    <th>Выдано</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for access in accesses %}
+                <tr>
+                    <td>{{ access.zone }}</td>
+                    <td>{{ access.get_qualification_level_display }}</td>
+                    <td>{{ access.granted_at|date:"d.m.Y" }}</td>
+                </tr>
+                {% empty %}
+                <tr><td colspan="3"><div class="empty-state">Допуски не назначены</div></td></tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<div class="card p-3">
+    <div class="small-label mb-2">Указания HR по повышению квалификации</div>
+    <div class="table-responsive">
+        <table class="table align-middle mb-0">
+            <thead>
+                <tr>
+                    <th>Целевая зона</th>
+                    <th>Целевой уровень</th>
+                    <th>Обоснование</th>
+                    <th>Статус</th>
+                    <th>Сертификат</th>
+                    <th class="text-end">Действие</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for row in directive_rows %}
+                <tr>
+                    <td>{{ row.item.target_zone }}</td>
+                    <td>{{ row.item.get_target_level_display }}</td>
+                    <td>{{ row.item.rationale }}</td>
+                    <td>{{ row.item.get_status_display }}</td>
+                    <td>
+                        {% if row.item.employee_certificate %}
+                            <a href="{{ row.item.employee_certificate.url }}" target="_blank" rel="noopener">Открыть</a>
+                        {% else %}
+                            <span class="text-muted">Не загружен</span>
+                        {% endif %}
+                    </td>
+                    <td class="text-end">
+                        {% if row.form %}
+                        <form method="post" action="{% url 'core:employee_qualification_confirm' row.item.id %}" class="d-inline-flex gap-2" enctype="multipart/form-data">
+                            {% csrf_token %}
+                            {{ row.form.employee_comment }}
+                            {{ row.form.employee_certificate }}
+                            <button class="btn btn-primary btn-sm" type="submit">Отправить сертификат HR</button>
+                        </form>
+                        {% endif %}
+                    </td>
+                </tr>
+                {% empty %}
+                <tr><td colspan="6"><div class="empty-state">Назначений на повышение квалификации нет</div></td></tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}

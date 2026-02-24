@@ -10,6 +10,14 @@ urlpatterns = [
     path("logout/", RedirectView.as_view(pattern_name="core:logout", permanent=False), name="logout"),
     path("dashboard/", views.dashboard, name="dashboard"),
     path("employees/", views.employees, name="employees"),
+    path("employees/<int:user_id>/edit/", views.employee_edit, name="employee_edit"),
+    path("qualification/", views.qualification_control, name="qualification_control"),
+    path("qualification/create/", views.qualification_create, name="qualification_create"),
+    path(
+        "qualification/<int:item_id>/<str:decision>/",
+        views.qualification_set_status,
+        name="qualification_set_status",
+    ),
     path("requests/profile/", views.profile_requests, name="profile_requests"),
     path(
         "requests/profile/<int:request_id>/<str:decision>/",

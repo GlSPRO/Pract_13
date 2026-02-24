@@ -31,6 +31,8 @@
                             <span class="indicator"></span><i class="bi bi-graph-up"></i> Дашборд HR</a></li>
                         <li><a class="nav-link {% if active_section == 'employees' %}active{% endif %}" href="{% url 'hr_portal:employees' %}">
                             <span class="indicator"></span><i class="bi bi-people"></i> Сотрудники</a></li>
+                        <li><a class="nav-link {% if active_section == 'qualification' %}active{% endif %}" href="{% url 'hr_portal:qualification_control' %}">
+                            <span class="indicator"></span><i class="bi bi-mortarboard"></i> Квалификация</a></li>
                         <li><a class="nav-link {% if active_section == 'requests_profile' %}active{% endif %}" href="{% url 'hr_portal:profile_requests' %}">
                             <span class="indicator"></span><i class="bi bi-person-lines-fill"></i> Заявки профиля</a></li>
                         <li><a class="nav-link {% if active_section == 'requests_leave' %}active{% endif %}" href="{% url 'hr_portal:leave_requests' %}">
@@ -48,6 +50,8 @@
                             <span class="indicator"></span><i class="bi bi-person-vcard"></i> Профиль и стаж</a></li>
                         <li><a class="nav-link {% if active_section == 'schedule' %}active{% endif %}" href="{% url 'core:employee_schedule' %}">
                             <span class="indicator"></span><i class="bi bi-calendar-week"></i> График смен</a></li>
+                        <li><a class="nav-link {% if active_section == 'qualification' %}active{% endif %}" href="{% url 'core:employee_qualification' %}">
+                            <span class="indicator"></span><i class="bi bi-patch-check"></i> Квалификация</a></li>
                         <li><a class="nav-link {% if active_section == 'leave' %}active{% endif %}" href="{% url 'core:employee_leave' %}">
                             <span class="indicator"></span><i class="bi bi-file-medical"></i> Больничные/отпуска</a></li>
                         <li><a class="nav-link {% if active_section == 'tasks' %}active{% endif %}" href="{% url 'core:employee_tasks' %}">

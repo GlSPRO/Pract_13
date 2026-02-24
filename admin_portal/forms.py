@@ -5,6 +5,7 @@ from django import forms
 from django.contrib.auth.models import Group, User
 
 from core.models import Profile
+from hr_portal.models import HiringRequest
 
 
 GROUP_CHOICES = (
@@ -93,3 +94,16 @@ class UserUpdateForm(forms.Form):
         self.user_instance.is_active = status == "active"
         self.user_instance.save()
         return self.user_instance
+
+
+class HiringRequestCreateForm(forms.ModelForm):
+    class Meta:
+        model = HiringRequest
+        fields = ["workshop", "required_count", "reason"]
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.fields["reason"].widget = forms.Textarea(attrs={"rows": 3})
+        for field in self.fields.values():
+            css_class = "form-select" if isinstance(field.widget, forms.Select) else "form-control"
+            field.widget.attrs.update({"class": css_class})

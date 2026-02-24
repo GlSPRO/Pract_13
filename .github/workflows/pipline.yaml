@@ -1,0 +1,220 @@
+name: ART_Kulinariya
+
+on:
+  push:
+  pull_request:
+
+env:
+  PIP_CACHE_DIR: .cache/pip
+  PYTHONUNBUFFERED: "1"
+  PIP_DISABLE_PIP_VERSION_CHECK: "1"
+
+jobs:
+  build_project:
+    name: build / build_project
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v6
+
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.11"
+
+      - name: Restore pip cache
+        uses: actions/cache@v5
+        with:
+          path: .cache/pip
+          key: ${{ runner.os }}-pip-3.11-${{ hashFiles('requirements.txt') }}
+          restore-keys: |
+            ${{ runner.os }}-pip-3.11-
+
+      - name: Install dependencies
+        run: |
+          python --version
+          python -m pip install --upgrade pip
+          if [ -f requirements.txt ]; then pip install -r requirements.txt; else pip install "django>=5.2,<5.3"; fi
+          pip install "flake8>=7,<8" "pip-audit>=2,<3"
+
+      - name: Build project
+        run: mkdir -p artifacts/build
+
+      - name: Upload build artifacts
+        if: always()
+        uses: actions/upload-artifact@v6
+        with:
+          name: build-artifacts
+          path: artifacts/build/
+          retention-days: 7
+
+  lint_python:
+    name: lint / lint_python
+    runs-on: ubuntu-latest
+    needs: build_project
+    continue-on-error: true
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v6
+
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.11"
+
+      - name: Restore pip cache
+        uses: actions/cache@v5
+        with:
+          path: .cache/pip
+          key: ${{ runner.os }}-pip-3.11-${{ hashFiles('requirements.txt') }}
+          restore-keys: |
+            ${{ runner.os }}-pip-3.11-
+
+      - name: Install dependencies
+        run: |
+          python --version
+          python -m pip install --upgrade pip
+          if [ -f requirements.txt ]; then pip install -r requirements.txt; else pip install "django>=5.2,<5.3"; fi
+          pip install "flake8>=7,<8" "pip-audit>=2,<3"
+
+      - name: Lint python
+        run: |
+          mkdir -p artifacts/lint
+          flake8 . --exclude=.venv,__pycache__,migrations > artifacts/lint/flake8.log || true
+
+      - name: Upload lint artifacts
+        if: always()
+        uses: actions/upload-artifact@v6
+        with:
+          name: lint-artifacts
+          path: artifacts/lint/
+          retention-days: 7
+
+  functional_django_checks:
+    name: functional / functional_django_checks
+    runs-on: ubuntu-latest
+    needs: lint_python
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v6
+
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.11"
+
+      - name: Restore pip cache
+        uses: actions/cache@v5
+        with:
+          path: .cache/pip
+          key: ${{ runner.os }}-pip-3.11-${{ hashFiles('requirements.txt') }}
+          restore-keys: |
+            ${{ runner.os }}-pip-3.11-
+
+      - name: Install dependencies
+        run: |
+          python --version
+          python -m pip install --upgrade pip
+          if [ -f requirements.txt ]; then pip install -r requirements.txt; else pip install "django>=5.2,<5.3"; fi
+          pip install "flake8>=7,<8" "pip-audit>=2,<3"
+
+      - name: Run django checks
+        run: |
+          mkdir -p artifacts/functional
+          python manage.py check > artifacts/functional/django-check.log
+          python manage.py makemigrations --check --dry-run > artifacts/functional/migrations-check.log
+
+      - name: Upload functional check artifacts
+        if: always()
+        uses: actions/upload-artifact@v6
+        with:
+          name: functional-artifacts
+          path: artifacts/functional/
+          retention-days: 7
+
+  functional_tests:
+    name: functional / functional_tests
+    runs-on: ubuntu-latest
+    needs: lint_python
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v6
+
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.11"
+
+      - name: Restore pip cache
+        uses: actions/cache@v5
+        with:
+          path: .cache/pip
+          key: ${{ runner.os }}-pip-3.11-${{ hashFiles('requirements.txt') }}
+          restore-keys: |
+            ${{ runner.os }}-pip-3.11-
+
+      - name: Install dependencies
+        run: |
+          python --version
+          python -m pip install --upgrade pip
+          if [ -f requirements.txt ]; then pip install -r requirements.txt; else pip install "django>=5.2,<5.3"; fi
+          pip install "flake8>=7,<8" "pip-audit>=2,<3"
+
+      - name: Run functional tests
+        run: |
+          mkdir -p artifacts/tests
+          python manage.py test -v 2 > artifacts/tests/tests.log
+
+      - name: Upload test artifacts
+        if: always()
+        uses: actions/upload-artifact@v6
+        with:
+          name: test-artifacts
+          path: artifacts/tests/
+          retention-days: 7
+
+  security_dependencies_audit:
+    name: functional / security_dependencies_audit
+    runs-on: ubuntu-latest
+    needs: lint_python
+    continue-on-error: true
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v6
+
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.11"
+
+      - name: Restore pip cache
+        uses: actions/cache@v5
+        with:
+          path: .cache/pip
+          key: ${{ runner.os }}-pip-3.11-${{ hashFiles('requirements.txt') }}
+          restore-keys: |
+            ${{ runner.os }}-pip-3.11-
+
+      - name: Install dependencies
+        run: |
+          python --version
+          python -m pip install --upgrade pip
+          if [ -f requirements.txt ]; then pip install -r requirements.txt; else pip install "django>=5.2,<5.3"; fi
+          pip install "flake8>=7,<8" "pip-audit>=2,<3"
+
+      - name: Audit dependencies
+        run: |
+          mkdir -p artifacts/security
+          if [ -f requirements.txt ]; then
+            pip-audit -r requirements.txt > artifacts/security/pip-audit.log || true
+          else
+            echo "requirements.txt not found, skipping pip-audit" > artifacts/security/pip-audit.log
+          fi
+
+      - name: Upload security artifacts
+        if: always()
+        uses: actions/upload-artifact@v6
+        with:
+          name: security-artifacts
+          path: artifacts/security/
+          retention-days: 7

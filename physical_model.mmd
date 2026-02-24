@@ -1,0 +1,215 @@
+erDiagram
+  admin_portal_auditlog {
+    INTEGER id PK
+    varchar(32) action
+    varchar(64) object_type
+    varchar(64) object_id
+    TEXT details
+    datetime created_at
+    INTEGER actor_id FK
+  }
+  auth_group {
+    INTEGER id PK
+    varchar(150) name
+  }
+  auth_group_permissions {
+    INTEGER id PK
+    INTEGER group_id FK
+    INTEGER permission_id FK
+  }
+  auth_permission {
+    INTEGER id PK
+    INTEGER content_type_id FK
+    varchar(100) codename
+    varchar(255) name
+  }
+  auth_user {
+    INTEGER id PK
+    varchar(128) password
+    datetime last_login
+    bool is_superuser
+    varchar(150) username
+    varchar(150) last_name
+    varchar(254) email
+    bool is_staff
+    bool is_active
+    datetime date_joined
+    varchar(150) first_name
+  }
+  auth_user_groups {
+    INTEGER id PK
+    INTEGER user_id FK
+    INTEGER group_id FK
+  }
+  auth_user_user_permissions {
+    INTEGER id PK
+    INTEGER user_id FK
+    INTEGER permission_id FK
+  }
+  core_employeetask {
+    INTEGER id PK
+    varchar(255) title
+    TEXT description
+    varchar(20) status
+    date due_date
+    datetime created_at
+    datetime updated_at
+    INTEGER employee_id FK
+    smallint_unsigned priority
+  }
+  core_employeezoneaccess {
+    INTEGER id PK
+    varchar(64) zone
+    varchar(20) qualification_level
+    bool is_active
+    datetime granted_at
+    INTEGER employee_id FK
+    INTEGER granted_by_id FK
+  }
+  core_jobposition {
+    INTEGER id PK
+    varchar(150) name
+    bool is_active
+    smallint_unsigned sort_order
+  }
+  core_leaverequest {
+    INTEGER id PK
+    varchar(20) leave_type
+    date start_date
+    date end_date
+    TEXT note
+    varchar(255) document_name
+    varchar(20) status
+    datetime created_at
+    INTEGER employee_id FK
+  }
+  core_profile {
+    INTEGER id PK
+    varchar(255) full_name
+    varchar(255) position
+    datetime created_at
+    INTEGER user_id FK
+    varchar(32) telegram_chat_id
+  }
+  core_profilechangerequest {
+    INTEGER id PK
+    varchar(100) field_label
+    TEXT new_value
+    varchar(20) status
+    datetime created_at
+    INTEGER employee_id FK
+  }
+  core_upskilldirective {
+    INTEGER id PK
+    varchar(64) target_zone
+    varchar(20) target_level
+    TEXT rationale
+    varchar(30) status
+    date planned_date
+    TEXT employee_comment
+    TEXT hr_comment
+    datetime created_at
+    datetime updated_at
+    INTEGER created_by_id FK
+    INTEGER employee_id FK
+    varchar(100) employee_certificate
+    datetime employee_certificate_uploaded_at
+  }
+  django_admin_log {
+    INTEGER id PK
+    TEXT object_id
+    varchar(200) object_repr
+    smallint_unsigned action_flag
+    TEXT change_message
+    INTEGER content_type_id FK
+    INTEGER user_id FK
+    datetime action_time
+  }
+  django_content_type {
+    INTEGER id PK
+    varchar(100) app_label
+    varchar(100) model
+  }
+  django_migrations {
+    INTEGER id PK
+    varchar(255) app
+    varchar(255) name
+    datetime applied
+  }
+  django_session {
+    varchar(40) session_key PK
+    TEXT session_data
+    datetime expire_date
+  }
+  hr_portal_hiringrequest {
+    INTEGER id PK
+    varchar(64) workshop
+    smallint_unsigned required_count
+    TEXT reason
+    varchar(20) status
+    datetime created_at
+    datetime updated_at
+    datetime closed_at
+    INTEGER created_by_id FK
+  }
+  hr_portal_interviewrequest {
+    INTEGER id PK
+    varchar(255) candidate_name
+    varchar(32) phone
+    datetime interview_at
+    varchar(64) workshop
+    TEXT notes
+    varchar(32) status
+    datetime created_at
+    datetime updated_at
+    INTEGER approved_by_id FK
+    INTEGER employee_user_id FK
+    INTEGER hr_manager_id FK
+    varchar(32) candidate_telegram_chat_id
+  }
+  hr_portal_interviewtelegraminvite {
+    INTEGER id PK
+    varchar(64) token
+    varchar(32) chat_id
+    datetime linked_at
+    datetime created_at
+    bigint interview_id FK
+  }
+  hr_portal_shiftassignment {
+    INTEGER id PK
+    date date
+    time start_time
+    time end_time
+    varchar(64) workshop
+    smallint_unsigned planned_staff
+    smallint_unsigned assigned_staff
+    datetime created_at
+    datetime updated_at
+    INTEGER assigned_employee_id FK
+    datetime acknowledged_at
+    bool is_acknowledged
+  }
+  auth_user ||--o{ admin_portal_auditlog : id_to_actor_id
+  auth_permission ||--|{ auth_group_permissions : id_to_permission_id
+  auth_group ||--|{ auth_group_permissions : id_to_group_id
+  django_content_type ||--|{ auth_permission : id_to_content_type_id
+  auth_group ||--|{ auth_user_groups : id_to_group_id
+  auth_user ||--|{ auth_user_groups : id_to_user_id
+  auth_permission ||--|{ auth_user_user_permissions : id_to_permission_id
+  auth_user ||--|{ auth_user_user_permissions : id_to_user_id
+  auth_user ||--|{ core_employeetask : id_to_employee_id
+  auth_user ||--o{ core_employeezoneaccess : id_to_granted_by_id
+  auth_user ||--|{ core_employeezoneaccess : id_to_employee_id
+  auth_user ||--|{ core_leaverequest : id_to_employee_id
+  auth_user ||--|| core_profile : id_to_user_id
+  auth_user ||--|{ core_profilechangerequest : id_to_employee_id
+  auth_user ||--|{ core_upskilldirective : id_to_employee_id
+  auth_user ||--o{ core_upskilldirective : id_to_created_by_id
+  auth_user ||--|{ django_admin_log : id_to_user_id
+  django_content_type ||--o{ django_admin_log : id_to_content_type_id
+  auth_user ||--o{ hr_portal_hiringrequest : id_to_created_by_id
+  auth_user ||--o{ hr_portal_interviewrequest : id_to_hr_manager_id
+  auth_user ||--o{ hr_portal_interviewrequest : id_to_employee_user_id
+  auth_user ||--o{ hr_portal_interviewrequest : id_to_approved_by_id
+  hr_portal_interviewrequest ||--|| hr_portal_interviewtelegraminvite : id_to_interview_id
+  auth_user ||--o{ hr_portal_shiftassignment : id_to_assigned_employee_id

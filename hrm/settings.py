@@ -26,7 +26,13 @@ SECRET_KEY = 'django-insecure-%+-jzza2o5uim$^ub7&@_!1k)&2_c*v_73f)$lj%2^ig6ehxi8
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
 
-ALLOWED_HOSTS = []
+ALLOWED_HOSTS = [
+    "127.0.0.1",
+    "localhost",
+    "0.0.0.0",
+    ".ngrok-free.dev",
+    ".ngrok-free.app",
+]
 
 
 # Application definition
@@ -121,6 +127,8 @@ USE_TZ = True
 
 STATIC_URL = 'static/'
 STATICFILES_DIRS = [BASE_DIR / 'static']
+MEDIA_URL = '/media/'
+MEDIA_ROOT = BASE_DIR / 'media'
 
 LOGIN_URL = '/login/'
 LOGIN_REDIRECT_URL = '/'

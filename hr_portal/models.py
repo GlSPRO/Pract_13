@@ -1,6 +1,8 @@
 from django.conf import settings
 from django.db import models
 
+from core.models import ZONE_CHOICES
+
 
 class ShiftAssignment(models.Model):
     WORKSHOP_CHOICES = [
@@ -116,3 +118,38 @@ class InterviewTelegramInvite(models.Model):
     class Meta:
         verbose_name = "Telegram-приглашение кандидата"
         verbose_name_plural = "Telegram-приглашения кандидатов"
+
+
+class HiringRequest(models.Model):
+    STATUS_OPEN = "open"
+    STATUS_IN_PROGRESS = "in_progress"
+    STATUS_CLOSED = "closed"
+    STATUS_CHOICES = [
+        (STATUS_OPEN, "Открыта"),
+        (STATUS_IN_PROGRESS, "В работе HR"),
+        (STATUS_CLOSED, "Закрыта"),
+    ]
+
+    workshop = models.CharField("Цех/участок", max_length=64, choices=ZONE_CHOICES)
+    required_count = models.PositiveSmallIntegerField("Требуется сотрудников", default=1)
+    reason = models.TextField("Обоснование")
+    status = models.CharField("Статус", max_length=20, choices=STATUS_CHOICES, default=STATUS_OPEN)
+    created_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="created_hiring_requests",
+        verbose_name="Создал администратор",
+    )
+    created_at = models.DateTimeField("Создано", auto_now_add=True)
+    updated_at = models.DateTimeField("Обновлено", auto_now=True)
+    closed_at = models.DateTimeField("Закрыто", null=True, blank=True)
+
+    class Meta:
+        ordering = ["status", "-created_at"]
+        verbose_name = "Заявка HR на подбор"
+        verbose_name_plural = "Заявки HR на подбор"
+
+    def __str__(self) -> str:
+        return f"{self.workshop}: {self.required_count}"

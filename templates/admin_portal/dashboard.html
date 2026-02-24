@@ -107,6 +107,69 @@
     </div>
 </div>
 
+<div class="card p-3 mb-3">
+    <div class="d-flex flex-wrap justify-content-between align-items-center mb-3 gap-2">
+        <div>
+            <div class="small-label">Подбор персонала</div>
+            <h2 class="h5 mb-0">Заявка HR на поиск сотрудников в зону</h2>
+        </div>
+    </div>
+    <form method="post" class="row g-2 mb-3">
+        {% csrf_token %}
+        <div class="col-12 col-md-3">
+            <label class="form-label" for="{{ hiring_form.workshop.id_for_label }}">{{ hiring_form.workshop.label }}</label>
+            {{ hiring_form.workshop }}
+            {% if hiring_form.workshop.errors %}
+                <div class="text-danger small mt-1">{{ hiring_form.workshop.errors|striptags }}</div>
+            {% endif %}
+        </div>
+        <div class="col-12 col-md-2">
+            <label class="form-label" for="{{ hiring_form.required_count.id_for_label }}">{{ hiring_form.required_count.label }}</label>
+            {{ hiring_form.required_count }}
+            {% if hiring_form.required_count.errors %}
+                <div class="text-danger small mt-1">{{ hiring_form.required_count.errors|striptags }}</div>
+            {% endif %}
+        </div>
+        <div class="col-12 col-md-5">
+            <label class="form-label" for="{{ hiring_form.reason.id_for_label }}">{{ hiring_form.reason.label }}</label>
+            {{ hiring_form.reason }}
+            {% if hiring_form.reason.errors %}
+                <div class="text-danger small mt-1">{{ hiring_form.reason.errors|striptags }}</div>
+            {% endif %}
+        </div>
+        <div class="col-12 col-md-2 d-flex align-items-end">
+            <button type="submit" class="btn btn-primary w-100">Создать заявку</button>
+        </div>
+    </form>
+
+    <div class="table-responsive">
+        <table class="table table-sm align-middle mb-0">
+            <thead>
+                <tr>
+                    <th>Зона</th>
+                    <th class="text-center">Требуется</th>
+                    <th>Статус</th>
+                    <th>Обоснование</th>
+                    <th>Создана</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for item in active_hiring_requests %}
+                    <tr>
+                        <td class="fw-semibold">{{ item.workshop }}</td>
+                        <td class="text-center">{{ item.required_count }}</td>
+                        <td>{{ item.get_status_display }}</td>
+                        <td>{{ item.reason }}</td>
+                        <td>{{ item.created_at|date:"d.m.Y H:i" }}</td>
+                    </tr>
+                {% empty %}
+                    <tr><td colspan="5"><div class="empty-state">Активных заявок нет</div></td></tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
 <div class="row g-3">
     <div class="col-12 col-xl-7">
         <div class="card h-100 p-3">
