@@ -33,6 +33,15 @@ jobs:
           mkdir -p artifacts/build
           echo "Build stage completed: $(date -u +'%Y-%m-%dT%H:%M:%SZ')" > artifacts/build/build-info.txt
 
+      - name: Verify build artifacts
+        run: |
+          mkdir -p artifacts/build
+          if [ ! -s artifacts/build/build-info.txt ]; then
+            echo "Build stage completed: $(date -u +'%Y-%m-%dT%H:%M:%SZ')" > artifacts/build/build-info.txt
+          fi
+          ls -la artifacts/build
+          test -s artifacts/build/build-info.txt
+
       - name: Upload build artifacts
         uses: actions/upload-artifact@v4
         with:
